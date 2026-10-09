@@ -251,7 +251,7 @@ Submit:
 
 1. **A link to your repo, with a screenshot of `forge test` passing**
    
-   - Repo link: *[Markdown Guide](https://www.markdownguide.org)*.
+   - Repo link: [COMP7810 Lab Session 1](https://github.com/higher-bottle/COMP7810-lab-session).
 
    - Screenshot:
      
