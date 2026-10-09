@@ -92,8 +92,8 @@ contract UnstoppableChallenge is Test {
     ////////////////////////////////////////////////////////////////////////
     function test_unstoppable() public checkSolvedByPlayer {
         // Hint: you are holding 10 DVT. What assumption does the vault make about its own balance?
-        //
-        // TODO: your code goes here
+        // A direct transfer makes the asset balance exceed the vault's share accounting.
+        token.transfer(address(vault), 1);
     }
 
     ////////////////////////////////////////////////////////////////////////

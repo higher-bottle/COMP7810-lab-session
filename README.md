@@ -7,6 +7,8 @@ The core claim, up front:
 > A stablecoin's "stability" does not come from the ERC-20 code — it comes from the **mint-redeem loop**.
 > ERC-20 is only a bookkeeping format; anyone can write one in ten minutes. The real work is designing the loop and the permissions around it.
 
+
+[Submission Shortcut](#6-submission)
 ---
 
 ## 1. Setup
@@ -247,10 +249,53 @@ To search for a fresh counterexample, `rm -rf cache/invariant` first.
 
 Submit:
 
-1. A link to your repo, with a screenshot of `forge test` passing
-2. Tier 2: Sepolia contract addresses + Etherscan links
-3. Your answers to the discussion questions in `STUDENT-QUESTIONS.md`
-4. An architecture diagram in your README — a photo of a hand drawing is fine
+1. **A link to your repo, with a screenshot of `forge test` passing**
+   
+   - Repo link: *[Markdown Guide](https://www.markdownguide.org)*.
+
+   - Screenshot:
+     
+     ![screenshot](screenShot.jpg)
+    
+2. **Tier 2: Sepolia contract addresses + Etherscan links**
+   
+   - Contract address: 
+     - SEPOLIA_USDC: 0x0f9952671E46a5cb93f839184f30677246EAE45e
+     - SEPOLIA_SUSD: 0x22b1B5F04Ba5bC4EE881C68EA35cCe9785c53d61
+     - SEPOLIA_VAULT: 0xe35d4f6c8bFE12f8c1Fac9b0511aC4Ed09442b3D
+   - Etherscan links: 
+     - [MockUSDC](https://sepolia.etherscan.io/address/0x0f9952671e46a5cb93f839184f30677246eae45e)
+     - [SimpleStablecoin](https://sepolia.etherscan.io/address/0x22b1b5f04ba5bc4ee881c68ea35cce9785c53d61)
+     - [Vault](https://sepolia.etherscan.io/address/0xe35d4f6c8bfe12f8c1fac9b0511ac4ed09442b3d)
+  
+3. **Your answers to the discussion questions in `STUDENT-QUESTIONS.md`**
+   
+   [completed Student-Questions](STUDENT-QUESTIONS.md)
+4. **An architecture diagram in your README — a photo of a hand drawing is fine**
+
+   ```mermaid
+   flowchart
+       User[User]
+       Admin[Administrator]
+       USDC[MockUSDC]
+       Vault[Vault]
+       SUSD[SimpleStablecoin]
+
+       User -->|1. Deposit USDC| Vault
+       Vault -->|2. Store collateral| USDC
+       Vault -->|3. Mint sUSD to user| SUSD
+
+       User -->|4. Redeem sUSD| Vault
+       Vault -->|5. Burn user's sUSD| SUSD
+       Vault -->|6. Return USDC| User
+
+       Admin -->|Grant and revoke roles| SUSD
+       Admin -->|Pause or unpause| SUSD
+       SUSD -. MINTER_ROLE .-> Vault
+
+       style User fill: #F2AD69,stroke: #733E0A
+       style Admin fill: #BEF8F1, stroke: #109482
+   ```
 
 ---
 

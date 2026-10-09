@@ -48,9 +48,15 @@ Track B (Codespaces) installs nothing locally.
 make anvil                  # terminal A, leave it running
 make deploy-anvil           # terminal B
 export VAULT=... SUSD=... USDC=...   # the three addresses deploy printed
+make faucet AMOUNT=1000000000        # get 1,000 mUSDC from the mock faucet
+make approve AMOUNT=1000000000       # allow the vault to take that mUSDC
 make mint AMOUNT=1000000000
 make balance TO=<your address>
 ```
+
+The faucet and approval use Anvil's default account 0, the same local-only account
+that `make mint` uses. Approval is required because `deposit()` calls `transferFrom`;
+without it, the transaction fails with `ERC20InsufficientAllowance`.
 
 Look at three numbers: `totalSupply()`, `totalCollateral()`, `balanceOf(you)`.
 **They must be equal.** That is the whole secret of the system.

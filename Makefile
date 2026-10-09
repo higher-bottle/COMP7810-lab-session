@@ -1,12 +1,28 @@
 SHELL := /bin/bash
+-include .env
 
 # Anvil default account 0 (public key, local demos only, never for real funds)
 ANVIL_KEY  := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+ANVIL_ADDRESS := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # Anvil default account 1 — used to play the attacker who holds no MINTER_ROLE
 ATTACK_KEY := 0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
-RPC        := http://127.0.0.1:8545
+ATTACKER   := 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 
-.PHONY: help setup doctor install-foundry test exercise challenge fmt anvil deploy-anvil snapshot restore mint balance clean
+RPC        := http://127.0.0.1:8545
+SEPOLIA_RPC:= https://eth-sepolia.g.alchemy.com/v2/$(ALCHEMY_KEY)
+SEPOLIA_GAS_MULTIPLIER ?= 800
+SEPOLIA_ADMIN := 0xA1695C15Dc14126F65db33AA826c0bb44d940e6d
+SEPOLIA_USDC  := 0x0f9952671E46a5cb93f839184f30677246EAE45e
+SEPOLIA_SUSD  := 0x22b1B5F04Ba5bC4EE881C68EA35cCe9785c53d61
+SEPOLIA_VAULT := 0xe35d4f6c8bFE12f8c1Fac9b0511aC4Ed09442b3D
+VAULT      := 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+USDC       := 0x5FbDB2315678afecb367f032d93F642f64180aa3
+SUSD       := 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+
+.PHONY: help setup doctor install-foundry test exercise \
+		challenge fmt anvil deploy-sepolia verify-sepolia deploy-anvil snapshot restore \
+		faucet approve mint balance clean attacker-mint \
+		attacker-grantMinterRole attacker-compareTotal
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -38,6 +54,37 @@ fmt: ## Format the contracts
 anvil: ## Start a local chain (in a second terminal)
 	anvil
 
+## Deploy to Sepolia
+deploy-sepolia: ## Deploy all three contracts to Sepolia (verification is separate)
+	PRIVATE_KEY=$(PRIVATE_KEY) forge script script/Deploy.s.sol:Deploy \
+		--rpc-url $(SEPOLIA_RPC) \
+		--broadcast \
+		--slow \
+		--gas-estimate-multiplier $(SEPOLIA_GAS_MULTIPLIER)
+
+verify-sepolia: ## Verify the latest Sepolia deployment on Etherscan
+	forge verify-contract \
+		$(SEPOLIA_USDC) \
+		src/MockUSDC.sol:MockUSDC \
+		--chain sepolia \
+		--etherscan-api-key $(ETHERSCAN_API_KEY) \
+		--watch
+	forge verify-contract \
+		$(SEPOLIA_SUSD) \
+		src/SimpleStablecoin.sol:SimpleStablecoin \
+		--chain sepolia \
+		--constructor-args $$(cast abi-encode 'constructor(address)' $(SEPOLIA_ADMIN)) \
+		--etherscan-api-key $(ETHERSCAN_API_KEY) \
+		--watch
+	forge verify-contract \
+		$(SEPOLIA_VAULT) \
+		src/Vault.sol:Vault \
+		--chain sepolia \
+		--constructor-args $$(cast abi-encode 'constructor(address,address)' \
+			$(SEPOLIA_USDC) $(SEPOLIA_SUSD)) \
+		--etherscan-api-key $(ETHERSCAN_API_KEY) \
+		--watch
+
 deploy-anvil: ## Deploy to the local chain
 	PRIVATE_KEY=$(ANVIL_KEY) forge script script/Deploy.s.sol:Deploy \
 		--rpc-url $(RPC) --broadcast
@@ -50,8 +97,36 @@ restore: ## Restore chain state from the snapshot, for when the demo goes sidewa
 	anvil --load-state demo-state.json --port 8545
 
 ## The commands below need VAULT=... SUSD=... USDC=... exported first
+faucet: ## Get test collateral AMOUNT=1000000000 from the mock USDC faucet
+	cast send $(USDC) "faucet(address,uint256)" $(ANVIL_ADDRESS) $(AMOUNT) \
+	--rpc-url $(RPC) \
+	--private-key $(ANVIL_KEY)
+
+approve: ## Approve the vault to spend AMOUNT collateral tokens
+	cast send $(USDC) "approve(address,uint256)" $(VAULT) $(AMOUNT) \
+	--rpc-url $(RPC) \
+	--private-key $(ANVIL_KEY)
+
 mint: ## make mint AMOUNT=1000000000  mint stablecoin to yourself via the vault
-	cast send $(VAULT) "deposit(uint256)" $(AMOUNT) --rpc-url $(RPC) --private-key $(ANVIL_KEY)
+	cast send $(VAULT) "deposit(uint256)" $(AMOUNT) \
+	--rpc-url $(RPC) \
+	--private-key $(ANVIL_KEY)
+
+attacker-mint: ## make the attacker mint stablecoin to themselves (fails, no MINTER_ROLE)
+	cast send $(SUSD) "mint(address,uint256)" $(ATTACKER) 1000000000000 \
+  		--rpc-url $(RPC) \
+		--private-key $(ATTACK_KEY)
+
+attacker-grantMinterRole: ## make the attacker mint stablecoin to themselves (succeeds, after you give them MINTER_ROLE)
+	cast send $(SUSD) "grantRole(bytes32,address)" $$(cast keccak "MINTER_ROLE") $(ATTACKER) \
+		--rpc-url $(RPC) \
+		--private-key $(ANVIL_KEY)
+
+attacker-compareTotal:
+	cast call $(SUSD) "totalSupply()(uint256)" \
+		--rpc-url $(RPC)
+	cast call $(VAULT) "totalCollateral()(uint256)" \
+		--rpc-url $(RPC)
 
 balance: ## make balance TO=0xf39F...  check a stablecoin balance
 	cast call $(SUSD) "balanceOf(address)(uint256)" $(TO) --rpc-url $(RPC)
